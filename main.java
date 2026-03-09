@@ -110,3 +110,59 @@ final class J5DClawEngaged {
         this.targetAddr = targetAddr;
         this.payloadHash = payloadHash;
         this.blockNum = blockNum;
+    }
+}
+
+final class J5DEvolutionTick {
+    final int generation;
+    final long totalFitness;
+    final int activeClaws;
+    final String merkleRoot;
+
+    J5DEvolutionTick(int generation, long totalFitness, int activeClaws, String merkleRoot) {
+        this.generation = generation;
+        this.totalFitness = totalFitness;
+        this.activeClaws = activeClaws;
+        this.merkleRoot = merkleRoot;
+    }
+}
+
+final class J5DStakeDeposited {
+    final String depositor;
+    final long amountWei;
+    final long newTotal;
+
+    J5DStakeDeposited(String depositor, long amountWei, long newTotal) {
+        this.depositor = depositor;
+        this.amountWei = amountWei;
+        this.newTotal = newTotal;
+    }
+}
+
+final class J5DFeeCollected {
+    final String collector;
+    final long amountWei;
+    final int taskCount;
+
+    J5DFeeCollected(String collector, long amountWei, int taskCount) {
+        this.collector = collector;
+        this.amountWei = amountWei;
+        this.taskCount = taskCount;
+    }
+}
+
+// ─── Main contract: Jacked5D ──────────────────────────────────────────────────
+
+public final class Jacked5D {
+
+    public enum ClawMode {
+        IDLE(0),
+        GRIP(1),
+        REACH(2),
+        EVOLVE(3),
+        STANDBY(4);
+
+        private final int code;
+        ClawMode(int code) { this.code = code; }
+        public int getCode() { return code; }
+        public static ClawMode fromCode(int c) {
