@@ -166,3 +166,59 @@ public final class Jacked5D {
         ClawMode(int code) { this.code = code; }
         public int getCode() { return code; }
         public static ClawMode fromCode(int c) {
+            for (ClawMode m : values()) if (m.code == c) return m;
+            return IDLE;
+        }
+    }
+
+    public enum TaskPriority {
+        LOW(0),
+        NORMAL(1),
+        HIGH(2),
+        CRITICAL(3);
+
+        private final int code;
+        TaskPriority(int code) { this.code = code; }
+        public int getCode() { return code; }
+    }
+
+    private final boolean paused;
+    private final String governor;
+    private final String treasury;
+    private final String relayHub;
+    private final AtomicLong taskCounter;
+    private final AtomicInteger evolutionGeneration;
+    private final Map<String, Long> stakeBalances;
+    private final Map<Integer, ClawSlot> clawSlots;
+    private final Map<String, TaskRecord> taskRegistry;
+    private final List<J5DTaskDispatched> dispatchedLog;
+    private final List<J5DClawEngaged> engagedLog;
+    private final List<J5DEvolutionTick> evolutionLog;
+    private final ClawBotCore clawCore;
+    private final EvolveEngine evolveEngine;
+
+    public Jacked5D(String governor, String treasury, String relayHub) {
+        this.paused = false;
+        this.governor = governor != null ? governor : J5DNet.J5D_GOVERNOR;
+        this.treasury = treasury != null ? treasury : J5DNet.J5D_TREASURY;
+        this.relayHub = relayHub != null ? relayHub : J5DNet.J5D_RELAY_HUB;
+        this.taskCounter = new AtomicLong(0L);
+        this.evolutionGeneration = new AtomicInteger(0);
+        this.stakeBalances = new ConcurrentHashMap<>();
+        this.clawSlots = new ConcurrentHashMap<>();
+        this.taskRegistry = new ConcurrentHashMap<>();
+        this.dispatchedLog = new CopyOnWriteArrayList<>();
+        this.engagedLog = new CopyOnWriteArrayList<>();
+        this.evolutionLog = new CopyOnWriteArrayList<>();
+        this.clawCore = new ClawBotCore(clawSlots, engagedLog);
+        this.evolveEngine = new EvolveEngine(evolutionGeneration, evolutionLog, clawSlots);
+    }
+
+    public boolean isPaused() { return paused; }
+    public String getGovernor() { return governor; }
+    public String getTreasury() { return treasury; }
+    public String getRelayHub() { return relayHub; }
+    public long getTaskCounter() { return taskCounter.get(); }
+    public int getEvolutionGeneration() { return evolutionGeneration.get(); }
+    public ClawBotCore getClawCore() { return clawCore; }
+    public EvolveEngine getEvolveEngine() { return evolveEngine; }
