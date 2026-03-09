@@ -222,3 +222,59 @@ public final class Jacked5D {
     public int getEvolutionGeneration() { return evolutionGeneration.get(); }
     public ClawBotCore getClawCore() { return clawCore; }
     public EvolveEngine getEvolveEngine() { return evolveEngine; }
+
+    public void requireGovernor(String caller) {
+        if (caller == null || !caller.equals(governor)) throw new J5dGovernorOnlyException();
+    }
+
+    public void requireRelayHub(String caller) {
+        if (caller == null || !caller.equals(relayHub)) throw new J5dRelayHubOnlyException();
+    }
+
+    public void requireNotPaused() {
+        if (paused) throw new J5dPausedException();
+    }
+
+    public String dispatchTask(String caller, byte[] payload, TaskPriority priority) {
+        requireNotPaused();
+        if (payload == null || payload.length > J5DNet.J5D_MAX_TASK_PAYLOAD)
+            throw new J5dInvalidPayloadException();
+        int slot = clawCore.reserveSlot();
+        String taskId = "J5D-" + taskCounter.incrementAndGet() + "-" + System.nanoTime();
+        long ts = System.currentTimeMillis();
+        TaskRecord rec = new TaskRecord(caller, payload, priority.getCode(), slot, ts);
+        taskRegistry.put(taskId, rec);
+        dispatchedLog.add(new J5DTaskDispatched(taskId, caller, slot, ts));
+        return taskId;
+    }
+
+    public void depositStake(String depositor, long amountWei) {
+        if (depositor == null) return;
+        if (amountWei < J5DNet.J5D_MIN_STAKE_WEI) throw new J5dStakeTooLowException();
+        long prev = stakeBalances.getOrDefault(depositor, 0L);
+        long next = prev + amountWei;
+        stakeBalances.put(depositor, next);
+        evolveEngine.recordStakeEvent(depositor, amountWei, next);
+    }
+
+    public long getStake(String addr) {
+        return addr == null ? 0L : stakeBalances.getOrDefault(addr, 0L);
+    }
+
+    public TaskRecord getTask(String taskId) {
+        return taskId == null ? null : taskRegistry.get(taskId);
+    }
+
+    public List<J5DTaskDispatched> getDispatchedLog(int limit) {
+        int n = dispatchedLog.size();
+        if (limit <= 0 || limit >= n) return new ArrayList<>(dispatchedLog);
+        return new ArrayList<>(dispatchedLog.subList(n - limit, n));
+    }
+
+    public List<J5DClawEngaged> getEngagedLog(int limit) {
+        int n = engagedLog.size();
+        if (limit <= 0 || limit >= n) return new ArrayList<>(engagedLog);
+        return new ArrayList<>(engagedLog.subList(n - limit, n));
+    }
+
+    public List<J5DEvolutionTick> getEvolutionLog(int limit) {
