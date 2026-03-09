@@ -54,3 +54,59 @@ final class J5dGovernorOnlyException extends RuntimeException {
 final class J5dPausedException extends RuntimeException {
     J5dPausedException() { super("J5D: system paused"); }
 }
+
+final class J5dCapExceededException extends RuntimeException {
+    J5dCapExceededException() { super("J5D: capacity exceeded"); }
+}
+
+final class J5dInvalidPayloadException extends RuntimeException {
+    J5dInvalidPayloadException() { super("J5D: invalid payload"); }
+}
+
+final class J5dStakeTooLowException extends RuntimeException {
+    J5dStakeTooLowException() { super("J5D: stake below minimum"); }
+}
+
+final class J5dUnknownTaskIdException extends RuntimeException {
+    J5dUnknownTaskIdException() { super("J5D: unknown task id"); }
+}
+
+final class J5dEvolutionLockedException extends RuntimeException {
+    J5dEvolutionLockedException() { super("J5D: evolution locked"); }
+}
+
+final class J5dClawSlotBusyException extends RuntimeException {
+    J5dClawSlotBusyException() { super("J5D: claw slot busy"); }
+}
+
+final class J5dRelayHubOnlyException extends RuntimeException {
+    J5dRelayHubOnlyException() { super("J5D: relay hub only"); }
+}
+
+// ─── J5D event payloads (immutable) ───────────────────────────────────────────
+
+final class J5DTaskDispatched {
+    final String taskId;
+    final String fromAddr;
+    final int slotIndex;
+    final long timestamp;
+
+    J5DTaskDispatched(String taskId, String fromAddr, int slotIndex, long timestamp) {
+        this.taskId = taskId;
+        this.fromAddr = fromAddr;
+        this.slotIndex = slotIndex;
+        this.timestamp = timestamp;
+    }
+}
+
+final class J5DClawEngaged {
+    final int clawId;
+    final String targetAddr;
+    final byte[] payloadHash;
+    final long blockNum;
+
+    J5DClawEngaged(int clawId, String targetAddr, byte[] payloadHash, long blockNum) {
+        this.clawId = clawId;
+        this.targetAddr = targetAddr;
+        this.payloadHash = payloadHash;
+        this.blockNum = blockNum;
