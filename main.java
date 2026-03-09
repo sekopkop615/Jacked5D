@@ -278,3 +278,59 @@ public final class Jacked5D {
     }
 
     public List<J5DEvolutionTick> getEvolutionLog(int limit) {
+        int n = evolutionLog.size();
+        if (limit <= 0 || limit >= n) return new ArrayList<>(evolutionLog);
+        return new ArrayList<>(evolutionLog.subList(n - limit, n));
+    }
+
+    public int runEvolutionCycle(long blockNum) {
+        requireGovernor(governor);
+        return evolveEngine.runCycle(blockNum);
+    }
+
+    public void executeClawTask(String taskId, String executor) {
+        requireRelayHub(executor);
+        requireNotPaused();
+        TaskRecord rec = taskRegistry.get(taskId);
+        if (rec == null) throw new J5dUnknownTaskIdException();
+        clawCore.executeTask(rec.slotIndex, rec.caller, rec.payload, blockNumForTest());
+        evolveEngine.recordExecution(rec.slotIndex);
+    }
+
+    private long blockNumForTest() { return System.currentTimeMillis() / 1000L; }
+
+    // ─── Inner: TaskRecord ────────────────────────────────────────────────────
+
+    public static final class TaskRecord {
+        public final String caller;
+        public final byte[] payload;
+        public final int priority;
+        public final int slotIndex;
+        public final long createdAt;
+
+        public TaskRecord(String caller, byte[] payload, int priority, int slotIndex, long createdAt) {
+            this.caller = caller;
+            this.payload = payload;
+            this.priority = priority;
+            this.slotIndex = slotIndex;
+            this.createdAt = createdAt;
+        }
+    }
+
+    // ─── Inner: ClawSlot ──────────────────────────────────────────────────────
+
+    public static final class ClawSlot {
+        public final int slotId;
+        public volatile int mode;
+        public volatile String owner;
+        public volatile long fitnessScore;
+        public volatile long lastUsedAt;
+
+        public ClawSlot(int slotId) {
+            this.slotId = slotId;
+            this.mode = ClawMode.IDLE.getCode();
+            this.owner = null;
+            this.fitnessScore = 0L;
+            this.lastUsedAt = 0L;
+        }
+    }
