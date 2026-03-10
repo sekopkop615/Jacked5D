@@ -390,3 +390,59 @@ public final class Jacked5D {
 
     public static final class EvolveEngine {
         private final AtomicInteger generation;
+        private final List<J5DEvolutionTick> evolutionLog;
+        private final Map<Integer, ClawSlot> clawSlots;
+        private final Map<String, Long> stakeSnapshot;
+        private long lastCycleBlock;
+
+        public EvolveEngine(AtomicInteger generation, List<J5DEvolutionTick> evolutionLog,
+                           Map<Integer, ClawSlot> clawSlots) {
+            this.generation = generation;
+            this.evolutionLog = evolutionLog;
+            this.clawSlots = clawSlots;
+            this.stakeSnapshot = new ConcurrentHashMap<>();
+            this.lastCycleBlock = 0L;
+        }
+
+        public void recordStakeEvent(String addr, long amountWei, long newTotal) {
+            stakeSnapshot.put(addr, newTotal);
+        }
+
+        public void recordExecution(int slotIndex) {
+            ClawSlot s = clawSlots.get(slotIndex);
+            if (s != null) s.fitnessScore += 10L;
+        }
+
+        public int runCycle(long blockNum) {
+            if (blockNum < lastCycleBlock + J5DNet.J5D_EVOLUTION_EPOCH_BLOCKS)
+                throw new J5dEvolutionLockedException();
+            lastCycleBlock = blockNum;
+            int gen = generation.incrementAndGet();
+            long totalFitness = clawSlots.values().stream().mapToLong(s -> s.fitnessScore).sum();
+            int active = (int) clawSlots.values().stream()
+                .filter(s -> s.mode != ClawMode.IDLE.getCode()).count();
+            String merkleRoot = computeMerkleRoot(gen, totalFitness, blockNum);
+            evolutionLog.add(new J5DEvolutionTick(gen, totalFitness, active, merkleRoot));
+            return gen;
+        }
+
+        private static String computeMerkleRoot(int gen, long fitness, long blockNum) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                String in = gen + "|" + fitness + "|" + blockNum;
+                byte[] h = md.digest(in.getBytes(StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder("0x");
+                for (byte b : h) sb.append(String.format("%02x", b & 0xff));
+                return sb.substring(0, 42);
+            } catch (NoSuchAlgorithmException e) { return "0x0000000000000000000000000000000000000000"; }
+        }
+    }
+
+    // ─── Fee collector & treasury ─────────────────────────────────────────────
+
+    public static final class FeeCollector {
+        private final String treasuryAddr;
+        private long accumulatedWei;
+        private int tasksBilled;
+
+        public FeeCollector(String treasuryAddr) {
