@@ -894,3 +894,59 @@ public final class Jacked5D {
         Jacked5D j5d = new Jacked5D(null, null, null);
         System.out.println("Jacked5D v" + j5d.getVersion() + " | chain " + j5d.getChainIdHex());
         System.out.println("Governor: " + j5d.getGovernor());
+        System.out.println("Treasury: " + j5d.getTreasury());
+        String taskId = j5d.dispatchTask(J5DNet.J5D_GOVERNOR, "hello".getBytes(StandardCharsets.UTF_8), TaskPriority.NORMAL);
+        System.out.println("Dispatched: " + taskId);
+        System.out.println("Snapshot: " + j5d.snapshotDigest());
+        j5d.depositStake(J5DNet.J5D_CLAW_CORE, 5000L);
+        System.out.println("Total stake: " + j5d.totalStake());
+    }
+
+    // ─── Kinematic solver (delta-frame inverse reach) ──────────────────────────
+
+    public static final class KinematicSolver {
+        private final double armLengthA;
+        private final double armLengthB;
+        private final double maxReach;
+        private final double minZ;
+        private final double maxZ;
+
+        public KinematicSolver(double armLengthA, double armLengthB, double maxReach, double minZ, double maxZ) {
+            this.armLengthA = armLengthA <= 0 ? 100.0 : armLengthA;
+            this.armLengthB = armLengthB <= 0 ? 80.0 : armLengthB;
+            this.maxReach = maxReach <= 0 ? 150.0 : maxReach;
+            this.minZ = minZ;
+            this.maxZ = maxZ <= minZ ? minZ + 50.0 : maxZ;
+        }
+
+        public double[] inverseReach(double x, double y, double z) {
+            double d = Math.sqrt(x * x + y * y);
+            if (d > maxReach) d = maxReach;
+            if (z < minZ) z = minZ;
+            if (z > maxZ) z = maxZ;
+            double theta1 = Math.atan2(y, x);
+            double r = Math.sqrt(d * d + z * z);
+            double cosB = (armLengthA * armLengthA + armLengthB * armLengthB - r * r) / (2 * armLengthA * armLengthB);
+            cosB = Math.max(-1, Math.min(1, cosB));
+            double theta2 = Math.acos(cosB);
+            double theta3 = Math.atan2(z, d);
+            return new double[] { theta1, theta2, theta3 };
+        }
+
+        public double[] forwardReach(double theta1, double theta2, double theta3) {
+            double x = armLengthA * Math.cos(theta1) * Math.sin(theta3) + armLengthB * Math.cos(theta1 + theta2) * Math.sin(theta3);
+            double y = armLengthA * Math.sin(theta1) * Math.sin(theta3) + armLengthB * Math.sin(theta1 + theta2) * Math.sin(theta3);
+            double z = armLengthA * Math.cos(theta3) + armLengthB * Math.cos(theta3);
+            return new double[] { x, y, z };
+        }
+
+        public double getMaxReach() { return maxReach; }
+        public double getMinZ() { return minZ; }
+        public double getMaxZ() { return maxZ; }
+    }
+
+    // ─── Self-evolve strategy (fitness-weighted slot selection) ──────────────────
+
+    public static final class SelfEvolveStrategy {
+        private final double explorationRate;
+        private final int eliteCount;
