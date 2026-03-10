@@ -950,3 +950,59 @@ public final class Jacked5D {
     public static final class SelfEvolveStrategy {
         private final double explorationRate;
         private final int eliteCount;
+
+        public SelfEvolveStrategy(double explorationRate, int eliteCount) {
+            this.explorationRate = explorationRate < 0 || explorationRate > 1 ? 0.1 : explorationRate;
+            this.eliteCount = eliteCount < 0 ? 2 : eliteCount;
+        }
+
+        public int selectSlot(Map<Integer, ClawSlot> slots, Random rng) {
+            if (slots == null || slots.isEmpty()) return -1;
+            List<Map.Entry<Integer, ClawSlot>> list = new ArrayList<>(slots.entrySet());
+            list.removeIf(e -> e.getValue().mode != ClawMode.IDLE.getCode());
+            if (list.isEmpty()) return -1;
+            list.sort(Comparator.comparingLong(e -> -e.getValue().fitnessScore));
+            if (rng.nextDouble() < explorationRate && list.size() > eliteCount) {
+                int idx = eliteCount + rng.nextInt(list.size() - eliteCount);
+                return list.get(idx).getKey();
+            }
+            return list.get(0).getKey();
+        }
+
+        public static SelfEvolveStrategy defaultStrategy() {
+            return new SelfEvolveStrategy(0.1, 2);
+        }
+    }
+
+    private KinematicSolver kinematicSolver;
+    private SelfEvolveStrategy selfEvolveStrategy;
+
+    public KinematicSolver getKinematicSolver() {
+        if (kinematicSolver == null)
+            kinematicSolver = new KinematicSolver(100.0, 80.0, 150.0, 0.0, 200.0);
+        return kinematicSolver;
+    }
+
+    public SelfEvolveStrategy getSelfEvolveStrategy() {
+        if (selfEvolveStrategy == null) selfEvolveStrategy = SelfEvolveStrategy.defaultStrategy();
+        return selfEvolveStrategy;
+    }
+
+    public void setKinematicSolver(KinematicSolver solver) { this.kinematicSolver = solver; }
+    public void setSelfEvolveStrategy(SelfEvolveStrategy strategy) { this.selfEvolveStrategy = strategy; }
+
+    public enum WristRoll {
+        NEUTRAL(0),
+        QUARTER(1),
+        HALF(2),
+        THREE_QUARTER(3),
+        FULL(4);
+
+        private final int code;
+        WristRoll(int code) { this.code = code; }
+        public int getCode() { return code; }
+    }
+
+    public enum GripForce {
+        LIGHT(1),
+        MEDIUM(2),
