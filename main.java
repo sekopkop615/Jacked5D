@@ -1790,3 +1790,59 @@ public final class Jacked5D {
     public double fitnessGrowthRate(int fromGen, int toGen) {
         long f1 = totalFitnessAtGeneration(fromGen);
         long f2 = totalFitnessAtGeneration(toGen);
+        if (f1 == 0) return f2 == 0 ? 0.0 : 1.0;
+        return (double) (f2 - f1) / f1;
+    }
+
+    public static final long J5D_INITIAL_SUPPLY_WEI = 0L;
+    public static final int J5D_DECIMALS = 18;
+    public static final String J5D_SYMBOL = "J5D";
+
+    public String symbol() { return J5D_SYMBOL; }
+    public int decimals() { return J5D_DECIMALS; }
+
+    public BigInteger formatUnits(long wei) {
+        return BigInteger.valueOf(wei).divide(BigInteger.TEN.pow(J5D_DECIMALS));
+    }
+
+    public long parseUnits(BigInteger humanReadable) {
+        return humanReadable == null ? 0L : humanReadable.multiply(BigInteger.TEN.pow(J5D_DECIMALS)).longValue();
+    }
+
+    public String formatStakeHuman(long wei) {
+        return formatUnits(wei).toString() + " " + J5D_SYMBOL;
+    }
+
+    public void trimEvolutionLog(int keepLast) {
+        if (keepLast <= 0 || evolutionLog.size() <= keepLast) return;
+        synchronized (evolutionLog) {
+            while (evolutionLog.size() > keepLast) evolutionLog.remove(0);
+        }
+    }
+
+    public int evolutionLogSize() { return evolutionLog.size(); }
+
+    public Optional<J5DEvolutionTick> evolutionTickAtIndex(int index) {
+        if (index < 0 || index >= evolutionLog.size()) return Optional.empty();
+        return Optional.of(evolutionLog.get(index));
+    }
+
+    public List<Long> evolutionFitnessSeries(int limit) {
+        return getEvolutionLog(limit).stream().map(t -> t.totalFitness).collect(Collectors.toList());
+    }
+
+    public List<Integer> evolutionActiveClawsSeries(int limit) {
+        return getEvolutionLog(limit).stream().map(t -> t.activeClaws).collect(Collectors.toList());
+    }
+
+    public String lastMerkleRoot() {
+        J5DEvolutionTick t = getLastEvolutionTick();
+        return t == null ? "" : t.merkleRoot;
+    }
+
+    public boolean merkleRootMatches(String expected) {
+        return expected != null && expected.equals(lastMerkleRoot());
+    }
+
+    public byte[] commitmentHash(byte[] data, long nonce) {
+        return hashForCommitment(data, nonce);
