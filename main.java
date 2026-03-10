@@ -1678,3 +1678,59 @@ public final class Jacked5D {
             if (taskId != null) md.update(taskId.getBytes(StandardCharsets.UTF_8));
             if (caller != null) md.update(caller.getBytes(StandardCharsets.UTF_8));
             md.update(BigInteger.valueOf(slotIndex).toByteArray());
+            md.update(BigInteger.valueOf(timestamp).toByteArray());
+            return md.digest();
+        } catch (NoSuchAlgorithmException e) { return new byte[32]; }
+    }
+
+    public long effectiveStakeAfterDecay(String addr, double decayFactor) {
+        long raw = getStake(addr);
+        return (long) (raw * decayFactor);
+    }
+
+    public List<String> stakersAboveThreshold(long thresholdWei) {
+        return stakeBalances.entrySet().stream()
+            .filter(e -> e.getValue() >= thresholdWei)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    }
+
+    public long sumStakeForAddresses(Collection<String> addrs) {
+        if (addrs == null) return 0L;
+        return addrs.stream().mapToLong(this::getStake).sum();
+    }
+
+    public Optional<String> topStaker() {
+        return stakeBalances.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey);
+    }
+
+    public long secondHighestStake() {
+        return stakeBalances.values().stream()
+            .sorted(Comparator.reverseOrder())
+            .skip(1)
+            .findFirst()
+            .orElse(0L);
+    }
+
+    public double stakerConcentrationGini() {
+        if (stakeBalances.isEmpty()) return 0.0;
+        List<Long> sorted = new ArrayList<>(stakeBalances.values());
+        Collections.sort(sorted);
+        long sum = sorted.stream().mapToLong(Long::longValue).sum();
+        if (sum == 0) return 0.0;
+        int n = sorted.size();
+        long cum = 0L;
+        double num = 0.0;
+        for (int i = 0; i < n; i++) {
+            cum += sorted.get(i);
+            num += (2L * (i + 1) - n - 1) * sorted.get(i);
+        }
+        return num / (n * sum);
+    }
+
+    public int payloadLengthForTask(String taskId) {
+        TaskRecord rec = taskRegistry.get(taskId);
+        return rec == null || rec.payload == null ? 0 : rec.payload.length;
+    }
