@@ -726,3 +726,59 @@ public final class Jacked5D {
         List<String> ids = new ArrayList<>(payloads.size());
         for (byte[] p : payloads) ids.add(dispatchTask(caller, p, priority));
         return ids;
+    }
+
+    public int executeClawTasks(List<String> taskIds, String executor) {
+        if (taskIds == null) return 0;
+        int done = 0;
+        for (String id : taskIds) {
+            try {
+                executeClawTask(id, executor);
+                done++;
+            } catch (RuntimeException ignored) { }
+        }
+        return done;
+    }
+
+    public Map<String, Long> getAllStakes() {
+        return new HashMap<>(stakeBalances);
+    }
+
+    public int countIdleSlots() {
+        return (int) clawSlots.values().stream().filter(s -> s.mode == ClawMode.IDLE.getCode()).count();
+    }
+
+    public long maxFitnessAmongSlots() {
+        return clawSlots.values().stream().mapToLong(s -> s.fitnessScore).max().orElse(0L);
+    }
+
+    public Optional<ClawSlot> slotWithMaxFitness() {
+        return clawSlots.values().stream().max(Comparator.comparingLong(s -> s.fitnessScore));
+    }
+
+    public void applyFitnessDecay() {
+        HenchConfig cfg = getHenchConfig();
+        double decay = cfg.fitnessDecay;
+        clawSlots.values().forEach(s -> s.fitnessScore = (long) (s.fitnessScore * decay));
+    }
+
+    public String encodeTaskId(long seq, long ts) {
+        return "J5D-" + seq + "-" + ts;
+    }
+
+    public long decodeTaskIdSequence(String taskId) {
+        if (taskId == null || !taskId.startsWith("J5D-")) return -1L;
+        String[] parts = taskId.split("-");
+        if (parts.length < 2) return -1L;
+        try {
+            return Long.parseLong(parts[1]);
+        } catch (NumberFormatException e) { return -1L; }
+    }
+
+    public byte[] hashForCommitment(byte[] payload, long nonce) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(payload != null ? payload : new byte[0]);
+            md.update(BigInteger.valueOf(nonce).toByteArray());
+            return md.digest();
+        } catch (NoSuchAlgorithmException e) { return new byte[32]; }
