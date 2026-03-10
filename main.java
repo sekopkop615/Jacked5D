@@ -1006,3 +1006,59 @@ public final class Jacked5D {
     public enum GripForce {
         LIGHT(1),
         MEDIUM(2),
+        HEAVY(3),
+        MAX(4);
+
+        private final int code;
+        GripForce(int code) { this.code = code; }
+        public int getCode() { return code; }
+    }
+
+    public static final class ClawAction {
+        public final int slotId;
+        public final GripForce force;
+        public final WristRoll roll;
+        public final double[] targetXyz;
+
+        public ClawAction(int slotId, GripForce force, WristRoll roll, double[] targetXyz) {
+            this.slotId = slotId;
+            this.force = force;
+            this.roll = roll;
+            this.targetXyz = targetXyz != null ? targetXyz.clone() : new double[0];
+        }
+    }
+
+    public ClawAction buildClawAction(int slotId, double x, double y, double z, GripForce force, WristRoll roll) {
+        return new ClawAction(slotId, force, roll, new double[] { x, y, z });
+    }
+
+    public double[] solveForClawAction(ClawAction action) {
+        KinematicSolver ks = getKinematicSolver();
+        if (action.targetXyz.length < 3) return new double[0];
+        return ks.inverseReach(action.targetXyz[0], action.targetXyz[1], action.targetXyz[2]);
+    }
+
+    public static final String J5D_EVENT_TASK_DISPATCHED = "TaskDispatched";
+    public static final String J5D_EVENT_CLAW_ENGAGED = "ClawEngaged";
+    public static final String J5D_EVENT_EVOLUTION_TICK = "EvolutionTick";
+    public static final String J5D_EVENT_STAKE_DEPOSITED = "StakeDeposited";
+    public static final String J5D_EVENT_FEE_COLLECTED = "FeeCollected";
+
+    public String eventSignature(String eventName, String paramTypes) {
+        if (eventName == null) return "";
+        return "0x" + PayloadEncoder.toHex((eventName + "(" + (paramTypes != null ? paramTypes : "") + ")").getBytes(StandardCharsets.UTF_8)).substring(0, 40);
+    }
+
+    public long gasEstimateForEvolution() {
+        return 150_000L + (long) clawSlots.size() * 500L;
+    }
+
+    public long gasEstimateForBatchDispatch(int count) {
+        return 21_000L + (long) count * 45_000L;
+    }
+
+    public boolean canRunEvolution(long currentBlock) {
+        J5DEvolutionTick last = getLastEvolutionTick();
+        if (last == null) return true;
+        return currentBlock >= (currentBlock - J5DNet.J5D_EVOLUTION_EPOCH_BLOCKS);
+    }
