@@ -614,3 +614,59 @@ public final class Jacked5D {
             byte[] h = md.digest();
             StringBuilder sb = new StringBuilder("0x");
             for (byte b : h) sb.append(String.format("%02x", b & 0xff));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) { return "0x0000000000000000000000000000000000000000"; }
+    }
+
+    // ─── Payload encoder (hex / base64) ────────────────────────────────────────
+
+    public static final class PayloadEncoder {
+        private static final char[] HEX = "0123456789abcdef".toCharArray();
+
+        public static String toHex(byte[] raw) {
+            if (raw == null) return "";
+            StringBuilder sb = new StringBuilder(raw.length * 2);
+            for (byte b : raw) {
+                sb.append(HEX[(b >> 4) & 0xf]);
+                sb.append(HEX[b & 0xf]);
+            }
+            return sb.toString();
+        }
+
+        public static byte[] fromHex(String hex) {
+            if (hex == null || (hex.length() & 1) != 0) return new byte[0];
+            if (hex.startsWith("0x")) hex = hex.substring(2);
+            byte[] out = new byte[hex.length() / 2];
+            for (int i = 0; i < out.length; i++)
+                out[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+            return out;
+        }
+
+        public static String toBase64(byte[] raw) {
+            return raw == null ? "" : Base64.getEncoder().encodeToString(raw);
+        }
+
+        public static byte[] fromBase64(String b64) {
+            if (b64 == null) return new byte[0];
+            try {
+                return Base64.getDecoder().decode(b64);
+            } catch (IllegalArgumentException e) { return new byte[0]; }
+        }
+    }
+
+    // ─── Relay router (multi-hop) ──────────────────────────────────────────────
+
+    public static final class RelayRouter {
+        private final List<String> hopAddresses;
+        private final int maxHops;
+
+        public RelayRouter(List<String> hopAddresses, int maxHops) {
+            this.hopAddresses = hopAddresses != null ? new ArrayList<>(hopAddresses) : new ArrayList<>();
+            this.maxHops = maxHops <= 0 ? 8 : Math.min(maxHops, 32);
+        }
+
+        public List<String> route(String fromAddr, String toAddr) {
+            List<String> out = new ArrayList<>();
+            if (fromAddr != null) out.add(fromAddr);
+            int n = Math.min(hopAddresses.size(), maxHops - 2);
+            for (int i = 0; i < n; i++) out.add(hopAddresses.get(i));
