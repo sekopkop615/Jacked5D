@@ -1062,3 +1062,59 @@ public final class Jacked5D {
         if (last == null) return true;
         return currentBlock >= (currentBlock - J5DNet.J5D_EVOLUTION_EPOCH_BLOCKS);
     }
+
+    public int nextEvolutionInBlocks(long currentBlock) {
+        long next = (currentBlock / J5DNet.J5D_EVOLUTION_EPOCH_BLOCKS + 1) * J5DNet.J5D_EVOLUTION_EPOCH_BLOCKS;
+        return (int) (next - currentBlock);
+    }
+
+    public List<Integer> slotsByFitnessDesc() {
+        return clawSlots.entrySet().stream()
+            .sorted((a, b) -> Long.compare(b.getValue().fitnessScore, a.getValue().fitnessScore))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    }
+
+    public Map<Integer, Long> fitnessMap() {
+        Map<Integer, Long> out = new HashMap<>();
+        clawSlots.forEach((k, v) -> out.put(k, v.fitnessScore));
+        return out;
+    }
+
+    public long totalFitness() {
+        return clawSlots.values().stream().mapToLong(s -> s.fitnessScore).sum();
+    }
+
+    public double averageFitness() {
+        int n = clawSlots.size();
+        return n == 0 ? 0.0 : (double) totalFitness() / n;
+    }
+
+    public int slotsWithFitnessAbove(long threshold) {
+        return (int) clawSlots.values().stream().filter(s -> s.fitnessScore >= threshold).count();
+    }
+
+    public void resetSlotFitness(int slotIndex) {
+        ClawSlot s = clawSlots.get(slotIndex);
+        if (s != null) s.fitnessScore = 0L;
+    }
+
+    public void resetAllFitness() {
+        clawSlots.values().forEach(s -> s.fitnessScore = 0L);
+    }
+
+    public String merkleRootOfStakes() {
+        List<String> addrs = new ArrayList<>(stakeBalances.keySet());
+        Collections.sort(addrs);
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            for (String a : addrs) {
+                md.update(a.getBytes(StandardCharsets.UTF_8));
+                md.update(BigInteger.valueOf(stakeBalances.get(a)).toByteArray());
+            }
+            byte[] h = md.digest();
+            StringBuilder sb = new StringBuilder("0x");
+            for (byte b : h) sb.append(String.format("%02x", b & 0xff));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) { return "0x0000000000000000000000000000000000000000"; }
+    }
