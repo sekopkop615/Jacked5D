@@ -1118,3 +1118,59 @@ public final class Jacked5D {
             return sb.toString();
         } catch (NoSuchAlgorithmException e) { return "0x0000000000000000000000000000000000000000"; }
     }
+
+    public byte[] signableHash(String taskId, String executor, long blockNum) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(("J5D-EXEC:" + taskId + ":" + executor + ":" + blockNum).getBytes(StandardCharsets.UTF_8));
+            return md.digest();
+        } catch (NoSuchAlgorithmException e) { return new byte[32]; }
+    }
+
+    public boolean validateExecutorForTask(String taskId, String executor) {
+        TaskRecord rec = taskRegistry.get(taskId);
+        if (rec == null) return false;
+        return addressEquals(relayHub, executor);
+    }
+
+    public int purgeCompletedTasksOlderThan(long maxAgeMs) {
+        long cutoff = System.currentTimeMillis() - maxAgeMs;
+        List<String> toRemove = taskRegistry.entrySet().stream()
+            .filter(e -> e.getValue().createdAt < cutoff)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+        toRemove.forEach(taskRegistry::remove);
+        return toRemove.size();
+    }
+
+    public int purgeStaleSlots(long idleThresholdBlocks) {
+        long now = blockNumForTest();
+        int released = 0;
+        for (ClawSlot s : clawSlots.values()) {
+            if (s.mode != ClawMode.IDLE.getCode() && (now - s.lastUsedAt) > idleThresholdBlocks) {
+                s.mode = ClawMode.IDLE.getCode();
+                s.owner = null;
+                released++;
+            }
+        }
+        return released;
+    }
+
+    public String formatTaskIdShort(String taskId) {
+        if (taskId == null || taskId.length() < 12) return taskId;
+        return taskId.substring(0, 8) + ".." + taskId.substring(taskId.length() - 4);
+    }
+
+    public static String randomAddress() {
+        byte[] b = new byte[20];
+        new SecureRandom().nextBytes(b);
+        StringBuilder sb = new StringBuilder("0x");
+        for (byte x : b) sb.append(String.format("%02x", x & 0xff));
+        return sb.toString();
+    }
+
+    public static String randomAddressEip55() {
+        return toChecksumAddress(randomAddress());
+    }
+
+    public boolean isReservedAddress(String addr) {
