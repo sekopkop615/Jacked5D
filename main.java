@@ -1342,3 +1342,59 @@ public final class Jacked5D {
         taskRegistry.put(taskId, rec);
         if (s == null) clawSlots.put(slotIndex, new ClawSlot(slotIndex));
         clawSlots.get(slotIndex).mode = ClawMode.GRIP.getCode();
+        dispatchedLog.add(new J5DTaskDispatched(taskId, caller, slotIndex, ts));
+        return Optional.of(taskId);
+    }
+
+    public int batchDispatchToSlots(String caller, List<int[]> slotAndPayloadPairs, TaskPriority priority) {
+        if (slotAndPayloadPairs == null) return 0;
+        int count = 0;
+        for (int[] pair : slotAndPayloadPairs) {
+            if (pair != null && pair.length >= 1) {
+                int slot = pair[0];
+                byte[] payload = pair.length >= 2 ? new byte[] { (byte) pair[1] } : new byte[0];
+                if (tryDispatchToSlot(caller, slot, payload.length > 0 ? payload : "batch".getBytes(StandardCharsets.UTF_8), priority).isPresent())
+                    count++;
+            }
+        }
+        return count;
+    }
+
+    public void releaseSlot(int slotIndex) {
+        ClawSlot s = clawSlots.get(slotIndex);
+        if (s != null) {
+            s.mode = ClawMode.IDLE.getCode();
+            s.owner = null;
+        }
+    }
+
+    public void releaseAllIdleSlots() {
+        clawSlots.values().stream()
+            .filter(s -> s.mode == ClawMode.STANDBY.getCode())
+            .forEach(s -> { s.mode = ClawMode.IDLE.getCode(); s.owner = null; });
+    }
+
+    public int setSlotsToStandby(Set<Integer> slotIndices) {
+        int n = 0;
+        for (Integer idx : slotIndices) {
+            ClawSlot s = clawSlots.get(idx);
+            if (s != null && s.mode == ClawMode.IDLE.getCode()) {
+                s.mode = ClawMode.STANDBY.getCode();
+                n++;
+            }
+        }
+        return n;
+    }
+
+    public Set<Integer> standbySlotIndices() {
+        Set<Integer> out = new HashSet<>();
+        clawSlots.forEach((k, v) -> { if (v.mode == ClawMode.STANDBY.getCode()) out.add(k); });
+        return out;
+    }
+
+    public static final int J5D_FLAG_PAUSED = 1;
+    public static final int J5D_FLAG_EVOLUTION_LOCKED = 2;
+    public static final int J5D_FLAG_FEE_ENABLED = 4;
+
+    public int getSystemFlags() {
+        int f = 0;
