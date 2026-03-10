@@ -1566,3 +1566,59 @@ public final class Jacked5D {
         public static ZCalibration defaultCalibration() {
             return new ZCalibration(0.12, 4.0, 60.0, 25);
         }
+    }
+
+    private ZCalibration zCalibration;
+
+    public ZCalibration getZCalibration() {
+        if (zCalibration == null) zCalibration = ZCalibration.defaultCalibration();
+        return zCalibration;
+    }
+
+    public void setZCalibration(ZCalibration cal) { this.zCalibration = cal; }
+
+    // ─── Wrist roll calibration ───────────────────────────────────────────────
+
+    public double wristRollToRadians(WristRoll roll) {
+        if (roll == null) return 0.0;
+        switch (roll) {
+            case NEUTRAL: return 0.0;
+            case QUARTER: return Math.PI / 4.0;
+            case HALF: return Math.PI / 2.0;
+            case THREE_QUARTER: return 3.0 * Math.PI / 4.0;
+            case FULL: return Math.PI;
+            default: return 0.0;
+        }
+    }
+
+    public int gripForceToPwm(GripForce force) {
+        if (force == null) return 128;
+        switch (force) {
+            case LIGHT: return 64;
+            case MEDIUM: return 128;
+            case HEAVY: return 192;
+            case MAX: return 255;
+            default: return 128;
+        }
+    }
+
+    public static final class ClawStateSnapshot {
+        public final int slotId;
+        public final int mode;
+        public final long fitnessScore;
+        public final long lastUsedAt;
+
+        public ClawStateSnapshot(int slotId, int mode, long fitnessScore, long lastUsedAt) {
+            this.slotId = slotId;
+            this.mode = mode;
+            this.fitnessScore = fitnessScore;
+            this.lastUsedAt = lastUsedAt;
+        }
+    }
+
+    public List<ClawStateSnapshot> captureClawStateSnapshots() {
+        return clawSlots.entrySet().stream()
+            .map(e -> new ClawStateSnapshot(e.getKey(), e.getValue().mode, e.getValue().fitnessScore, e.getValue().lastUsedAt))
+            .collect(Collectors.toList());
+    }
+
