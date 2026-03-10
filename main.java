@@ -782,3 +782,59 @@ public final class Jacked5D {
             md.update(BigInteger.valueOf(nonce).toByteArray());
             return md.digest();
         } catch (NoSuchAlgorithmException e) { return new byte[32]; }
+    }
+
+    public boolean verifyCommitment(byte[] payload, long nonce, byte[] expectedHash) {
+        byte[] actual = hashForCommitment(payload, nonce);
+        return actual != null && expectedHash != null && actual.length == expectedHash.length
+            && java.util.Arrays.equals(actual, expectedHash);
+    }
+
+    public long nextNonce() {
+        return System.nanoTime() ^ (taskCounter.get() << 12);
+    }
+
+    public static final int J5D_CONSTANT_A = 0x5D;
+    public static final int J5D_CONSTANT_B = 0x1A9E;
+    public static final long J5D_CONSTANT_C = 0x7F2B4D8AL;
+    public static final String J5D_CONSTANT_D = "J5D-KINEMATIC-V1";
+
+    public int mixConstantA(int value) { return (value ^ J5D_CONSTANT_A) & 0xFFFF; }
+    public long mixConstantC(long value) { return value ^ J5D_CONSTANT_C; }
+
+    public List<String> getTopStakers(int limit) {
+        return stakeBalances.entrySet().stream()
+            .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+            .limit(limit <= 0 ? 10 : limit)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    }
+
+    public long getTotalDispatchedCount() { return dispatchedLog.size(); }
+    public long getTotalEngagedCount() { return engagedLog.size(); }
+    public long getTotalEvolutionTicks() { return evolutionLog.size(); }
+
+    public J5DTaskDispatched getLastDispatched() {
+        return dispatchedLog.isEmpty() ? null : dispatchedLog.get(dispatchedLog.size() - 1);
+    }
+
+    public J5DClawEngaged getLastEngaged() {
+        return engagedLog.isEmpty() ? null : engagedLog.get(engagedLog.size() - 1);
+    }
+
+    public J5DEvolutionTick getLastEvolutionTick() {
+        return evolutionLog.isEmpty() ? null : evolutionLog.get(evolutionLog.size() - 1);
+    }
+
+    public void trimDispatchedLog(int keepLast) {
+        if (keepLast <= 0 || dispatchedLog.size() <= keepLast) return;
+            synchronized (dispatchedLog) {
+                while (dispatchedLog.size() > keepLast) dispatchedLog.remove(0);
+            }
+    }
+
+    public void trimEngagedLog(int keepLast) {
+        if (keepLast <= 0 || engagedLog.size() <= keepLast) return;
+        synchronized (engagedLog) {
+            while (engagedLog.size() > keepLast) engagedLog.remove(0);
+        }
