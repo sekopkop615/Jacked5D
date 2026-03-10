@@ -1454,3 +1454,59 @@ public final class Jacked5D {
     public Optional<TaskRecord> latestTask() {
         if (dispatchedLog.isEmpty()) return Optional.empty();
         String lastId = dispatchedLog.get(dispatchedLog.size() - 1).taskId;
+        return Optional.ofNullable(taskRegistry.get(lastId));
+    }
+
+    public int clearTaskRegistry() {
+        int n = taskRegistry.size();
+        taskRegistry.clear();
+        return n;
+    }
+
+    public boolean hasTask(String taskId) { return taskId != null && taskRegistry.containsKey(taskId); }
+
+    public Set<String> allTaskIds() { return new HashSet<>(taskRegistry.keySet()); }
+
+    public long totalDispatchedWeiEquivalent(int weiPerTask) {
+        return (long) dispatchedLog.size() * weiPerTask;
+    }
+
+    public double feeAtBps(long amountWei, int bps) {
+        return (double) amountWei * bps / J5DNet.J5D_BPS_DENOM;
+    }
+
+    public long feeWeiAtBps(long amountWei, int bps) {
+        return amountWei * bps / J5DNet.J5D_BPS_DENOM;
+    }
+
+    public long applyFee(long amountWei) {
+        return amountWei + feeWeiAtBps(amountWei, J5DNet.J5D_FEE_BPS);
+    }
+
+    public long applyFee(long amountWei, int bps) {
+        return amountWei + feeWeiAtBps(amountWei, bps <= 0 ? J5DNet.J5D_FEE_BPS : bps);
+    }
+
+    public String checksumTreasury() { return toChecksumAddress(treasury); }
+    public String checksumGovernor() { return toChecksumAddress(governor); }
+    public String checksumRelayHub() { return toChecksumAddress(relayHub); }
+
+    public byte[] serializeTaskRecord(TaskRecord rec) {
+        if (rec == null) return new byte[0];
+        String s = rec.caller + "|" + rec.priority + "|" + rec.slotIndex + "|" + rec.createdAt + "|" + (rec.payload != null ? PayloadEncoder.toBase64(rec.payload) : "");
+        return s.getBytes(StandardCharsets.UTF_8);
+    }
+
+    public Optional<TaskRecord> deserializeTaskRecord(byte[] data, String taskId) {
+        if (data == null || data.length == 0) return Optional.empty();
+        String str = new String(data, StandardCharsets.UTF_8);
+        String[] parts = str.split("\\|", -1);
+        if (parts.length < 4) return Optional.empty();
+        try {
+            String caller = parts[0];
+            int priority = Integer.parseInt(parts[1]);
+            int slotIndex = Integer.parseInt(parts[2]);
+            long createdAt = Long.parseLong(parts[3]);
+            byte[] payload = parts.length > 4 && !parts[4].isEmpty() ? PayloadEncoder.fromBase64(parts[4]) : new byte[0];
+            return Optional.of(new TaskRecord(caller, payload, priority, slotIndex, createdAt));
+        } catch (NumberFormatException e) { return Optional.empty(); }
