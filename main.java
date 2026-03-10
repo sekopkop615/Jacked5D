@@ -1902,3 +1902,59 @@ public final class Jacked5D {
 
     public long createdAtFromTaskId(String taskId) {
         TaskRecord rec = taskRegistry.get(taskId);
+        return rec == null ? 0L : rec.createdAt;
+    }
+
+    public Optional<TaskRecord> taskBySlot(int slotIndex) {
+        return taskRegistry.values().stream().filter(r -> r.slotIndex == slotIndex).findFirst();
+    }
+
+    public List<String> taskIdsForSlot(int slotIndex) {
+        return taskRegistry.entrySet().stream()
+            .filter(e -> e.getValue().slotIndex == slotIndex)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    }
+
+    public int slotLoad(int slotIndex) {
+        return taskIdsForSlot(slotIndex).size();
+    }
+
+    public Optional<Integer> leastLoadedSlot() {
+        return clawSlots.keySet().stream()
+            .min(Comparator.comparingInt(this::slotLoad));
+    }
+
+    public Optional<Integer> mostLoadedSlot() {
+        return clawSlots.keySet().stream()
+            .max(Comparator.comparingInt(this::slotLoad));
+    }
+
+    public void rotateRelayHops(List<String> newHops) {
+        if (newHops != null && !newHops.isEmpty())
+            relayRouter = new RelayRouter(newHops, getRelayRouter().getMaxHops());
+    }
+
+    public int relayHopCount() { return getRelayRouter().route(null, null).size(); }
+
+    public boolean isPauseGuard(String addr) { return addressEquals(J5DNet.J5D_PAUSE_GUARD, addr); }
+
+    public long pauseGuardUnlockAt() { return getPauseGuard().getUnlockAtMs(); }
+
+    public void schedulePauseGuardUnlock(long delayMs) {
+        getPauseGuard().scheduleUnlock(delayMs, System.currentTimeMillis());
+    }
+
+    public boolean canUnpauseNow(String caller) {
+        return getPauseGuard().canUnpause(caller, System.currentTimeMillis());
+    }
+
+    public static final String J5D_BUILD = "5D-HENCH-1.0";
+    public static final String J5D_SPEC = "J5D-KINEMATIC-RESOLVER";
+
+    public String getBuild() { return J5D_BUILD; }
+    public String getSpec() { return J5D_SPEC; }
+
+    public int clampSlotIndex(int index) {
+        if (index < 0) return 0;
+        return Math.min(index, J5DNet.J5D_MAX_CLAW_SLOTS - 1);
