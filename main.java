@@ -838,3 +838,59 @@ public final class Jacked5D {
         synchronized (engagedLog) {
             while (engagedLog.size() > keepLast) engagedLog.remove(0);
         }
+    }
+
+    public String getChainIdHex() {
+        return "0x" + Long.toHexString(J5DNet.J5D_CHAIN_ID);
+    }
+
+    public int getVersion() { return J5DNet.J5D_VERSION; }
+
+    public static byte[] randomPayload(int length) {
+        if (length <= 0) return new byte[0];
+        byte[] b = new byte[Math.min(length, J5DNet.J5D_MAX_TASK_PAYLOAD)];
+        new SecureRandom().nextBytes(b);
+        return b;
+    }
+
+    public String dispatchTaskWithFee(String caller, byte[] payload, TaskPriority priority, long baseWei) {
+        String taskId = dispatchTask(caller, payload, priority);
+        FeeCollector fc = getFeeCollector();
+        long fee = fc.computeFee(baseWei, priority.getCode());
+        fc.collect(caller, fee);
+        return taskId;
+    }
+
+    public long withdrawAccumulatedFees() {
+        return getFeeCollector().flushToTreasury();
+    }
+
+    public BigInteger getOraclePrice(String symbol) {
+        return getOracleAdapter().getPrice(symbol);
+    }
+
+    public void setOraclePrice(String symbol, BigInteger value) {
+        getOracleAdapter().setPrice(symbol, value);
+    }
+
+    public byte[] getEntropy(int byteLength) {
+        return getOracleAdapter().getEntropy(byteLength);
+    }
+
+    public String toEip55(String addr) { return toChecksumAddress(addr); }
+
+    public boolean addressEquals(String a, String b) {
+        if (a == null || b == null) return a == b;
+        return toChecksumAddress(a).equals(toChecksumAddress(b));
+    }
+
+    public int compareAddresses(String a, String b) {
+        String aa = a == null ? "" : toChecksumAddress(a);
+        String bb = b == null ? "" : toChecksumAddress(b);
+        return aa.compareTo(bb);
+    }
+
+    public static void main(String[] args) {
+        Jacked5D j5d = new Jacked5D(null, null, null);
+        System.out.println("Jacked5D v" + j5d.getVersion() + " | chain " + j5d.getChainIdHex());
+        System.out.println("Governor: " + j5d.getGovernor());
