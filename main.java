@@ -1510,3 +1510,59 @@ public final class Jacked5D {
             byte[] payload = parts.length > 4 && !parts[4].isEmpty() ? PayloadEncoder.fromBase64(parts[4]) : new byte[0];
             return Optional.of(new TaskRecord(caller, payload, priority, slotIndex, createdAt));
         } catch (NumberFormatException e) { return Optional.empty(); }
+    }
+
+    public int replayDispatchedLog(int limit, Map<String, TaskRecord> intoRegistry) {
+        if (intoRegistry == null) return 0;
+        List<J5DTaskDispatched> slice = getDispatchedLog(limit);
+        int n = 0;
+        for (J5DTaskDispatched e : slice) {
+            TaskRecord rec = taskRegistry.get(e.taskId);
+            if (rec != null) {
+                intoRegistry.put(e.taskId, rec);
+                n++;
+            }
+        }
+        return n;
+    }
+
+    public String buildCalldataDispatch(String caller, String payloadHex, int priorityCode) {
+        return "dispatch(" + caller + "," + (payloadHex != null ? "0x" + payloadHex : "0x") + "," + priorityCode + ")";
+    }
+
+    public String buildCalldataExecute(String taskId, String executor) {
+        return "execute(" + taskId + "," + executor + ")";
+    }
+
+    public String buildCalldataEvolution(long blockNum) {
+        return "runEvolution(" + blockNum + ")";
+    }
+
+    public static final long GAS_DISPATCH = 65_000L;
+    public static final long GAS_EXECUTE = 85_000L;
+    public static final long GAS_EVOLUTION = 200_000L;
+    public static final long GAS_STAKE = 45_000L;
+
+    public long gasForDispatch() { return GAS_DISPATCH; }
+    public long gasForExecute() { return GAS_EXECUTE; }
+    public long gasForEvolution() { return GAS_EVOLUTION; }
+    public long gasForStake() { return GAS_STAKE; }
+
+    // ─── Z-height & retract calibration (delta-frame) ─────────────────────────
+
+    public static final class ZCalibration {
+        public final double layerHeightMm;
+        public final double retractMm;
+        public final double feedRate;
+        public final int retractSpeed;
+
+        public ZCalibration(double layerHeightMm, double retractMm, double feedRate, int retractSpeed) {
+            this.layerHeightMm = layerHeightMm <= 0 ? 0.12 : layerHeightMm;
+            this.retractMm = retractMm <= 0 ? 4.0 : retractMm;
+            this.feedRate = feedRate <= 0 ? 60.0 : feedRate;
+            this.retractSpeed = retractSpeed <= 0 ? 25 : retractSpeed;
+        }
+
+        public static ZCalibration defaultCalibration() {
+            return new ZCalibration(0.12, 4.0, 60.0, 25);
+        }
