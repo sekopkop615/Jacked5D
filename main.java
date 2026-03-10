@@ -558,3 +558,59 @@ public final class Jacked5D {
 
     // ─── Validation & checksums ───────────────────────────────────────────────
 
+    public static boolean isValidAddress(String addr) {
+        if (addr == null || !addr.startsWith("0x")) return false;
+        String hex = addr.substring(2);
+        if (hex.length() != 40) return false;
+        return hex.matches("[0-9a-fA-F]{40}");
+    }
+
+    public static String toChecksumAddress(String addr) {
+        if (addr == null || addr.length() < 42) return addr;
+        String lower = addr.substring(2).toLowerCase();
+        if (!lower.matches("[0-9a-f]{40}")) return addr;
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] h = md.digest(lower.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder("0x");
+            for (int i = 0; i < 40; i++) {
+                char c = lower.charAt(i);
+                if (c >= 'a' && c <= 'f') {
+                    int nibble = (h[i / 2] >> (4 - (i % 2) * 4)) & 0xf;
+                    if (nibble >= 8) c = Character.toUpperCase(c);
+                }
+                sb.append(c);
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) { return addr; }
+    }
+
+    public long estimateGasForDispatch(int payloadLen) {
+        long base = 21000L;
+        long perByte = 68L;
+        return base + (payloadLen <= 0 ? 0 : payloadLen * perByte);
+    }
+
+    public int recommendSlotForPriority(TaskPriority p) {
+        if (p == TaskPriority.CRITICAL) return 0;
+        if (p == TaskPriority.HIGH) return 1;
+        return 2;
+    }
+
+    public Stream<ClawSlot> streamActiveSlots() {
+        return clawSlots.values().stream().filter(s -> s.mode != ClawMode.IDLE.getCode());
+    }
+
+    public long totalStake() {
+        return stakeBalances.values().stream().mapToLong(Long::longValue).sum();
+    }
+
+    public int taskRegistrySize() { return taskRegistry.size(); }
+
+    public String snapshotDigest() {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(("J5D-" + taskCounter.get() + "-" + evolutionGeneration.get() + "-" + totalStake()).getBytes(StandardCharsets.UTF_8));
+            byte[] h = md.digest();
+            StringBuilder sb = new StringBuilder("0x");
+            for (byte b : h) sb.append(String.format("%02x", b & 0xff));
