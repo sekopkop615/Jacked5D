@@ -334,3 +334,59 @@ public final class Jacked5D {
             this.lastUsedAt = 0L;
         }
     }
+
+    // ─── Inner: ClawBotCore ─────────────────────────────────────────────────────
+
+    public static final class ClawBotCore {
+        private final Map<Integer, ClawSlot> slots;
+        private final List<J5DClawEngaged> engagedLog;
+        private final AtomicInteger nextSlot;
+
+        public ClawBotCore(Map<Integer, ClawSlot> slots, List<J5DClawEngaged> engagedLog) {
+            this.slots = slots;
+            this.engagedLog = engagedLog;
+            this.nextSlot = new AtomicInteger(0);
+        }
+
+        public int reserveSlot() {
+            int max = J5DNet.J5D_MAX_CLAW_SLOTS;
+            for (int i = 0; i < max; i++) {
+                int idx = nextSlot.updateAndGet(n -> (n + 1) % max);
+                ClawSlot s = slots.computeIfAbsent(idx, ClawSlot::new);
+                if (s.mode == ClawMode.IDLE.getCode()) {
+                    s.mode = ClawMode.GRIP.getCode();
+                    return idx;
+                }
+            }
+            throw new J5dClawSlotBusyException();
+        }
+
+        public void executeTask(int slotIndex, String targetAddr, byte[] payload, long blockNum) {
+            ClawSlot s = slots.get(slotIndex);
+            if (s == null) throw new J5dUnknownTaskIdException();
+            byte[] hash = hashPayload(payload);
+            s.mode = ClawMode.REACH.getCode();
+            s.lastUsedAt = blockNum;
+            s.fitnessScore += 1L;
+            engagedLog.add(new J5DClawEngaged(slotIndex, targetAddr, hash, blockNum));
+            s.mode = ClawMode.IDLE.getCode();
+            s.owner = null;
+        }
+
+        private static byte[] hashPayload(byte[] payload) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                return md.digest(payload != null ? payload : new byte[0]);
+            } catch (NoSuchAlgorithmException e) { return new byte[32]; }
+        }
+
+        public ClawSlot getSlot(int index) { return slots.get(index); }
+        public int activeSlotCount() {
+            return (int) slots.values().stream().filter(s -> s.mode != ClawMode.IDLE.getCode()).count();
+        }
+    }
+
+    // ─── Inner: EvolveEngine ────────────────────────────────────────────────────
+
+    public static final class EvolveEngine {
+        private final AtomicInteger generation;
