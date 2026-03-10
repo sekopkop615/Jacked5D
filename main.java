@@ -1174,3 +1174,59 @@ public final class Jacked5D {
     }
 
     public boolean isReservedAddress(String addr) {
+        if (addr == null) return false;
+        String a = toChecksumAddress(addr);
+        return a.equals(toChecksumAddress(J5DNet.J5D_GOVERNOR))
+            || a.equals(toChecksumAddress(J5DNet.J5D_TREASURY))
+            || a.equals(toChecksumAddress(J5DNet.J5D_RELAY_HUB))
+            || a.equals(toChecksumAddress(J5DNet.J5D_ORACLE_FEED))
+            || a.equals(toChecksumAddress(J5DNet.J5D_PAUSE_GUARD));
+    }
+
+    public int reservedAddressCount() { return 8; }
+
+    public List<String> allReservedAddresses() {
+        return Arrays.asList(
+            J5DNet.J5D_GOVERNOR,
+            J5DNet.J5D_TREASURY,
+            J5DNet.J5D_RELAY_HUB,
+            J5DNet.J5D_ORACLE_FEED,
+            J5DNet.J5D_UPGRADE_PROXY,
+            J5DNet.J5D_PAUSE_GUARD,
+            J5DNet.J5D_CLAW_CORE,
+            J5DNet.J5D_EVOLVE_VAULT
+        );
+    }
+
+    public long minStakeRequired() { return J5DNet.J5D_MIN_STAKE_WEI; }
+    public int maxTaskPayloadBytes() { return J5DNet.J5D_MAX_TASK_PAYLOAD; }
+    public int maxClawSlots() { return J5DNet.J5D_MAX_CLAW_SLOTS; }
+    public int evolutionEpochBlocks() { return J5DNet.J5D_EVOLUTION_EPOCH_BLOCKS; }
+    public int feeBps() { return J5DNet.J5D_FEE_BPS; }
+
+    public BigInteger weiToBigInteger(long wei) {
+        return BigInteger.valueOf(wei);
+    }
+
+    public long saturatingAddStake(String addr, long addWei) {
+        long cur = getStake(addr);
+        long sum = cur + addWei;
+        if (sum < 0) sum = Long.MAX_VALUE;
+        stakeBalances.put(addr, sum);
+        return sum;
+    }
+
+    public OptionalLong tryGetStake(String addr) {
+        if (addr == null) return OptionalLong.empty();
+        return stakeBalances.containsKey(addr) ? OptionalLong.of(stakeBalances.get(addr)) : OptionalLong.empty();
+    }
+
+    public Set<String> allStakerAddresses() {
+        return new HashSet<>(stakeBalances.keySet());
+    }
+
+    public int stakerCount() { return stakeBalances.size(); }
+
+    public void recordDispatchedEvent(String taskId, String fromAddr, int slotIndex) {
+        dispatchedLog.add(new J5DTaskDispatched(taskId, fromAddr, slotIndex, System.currentTimeMillis()));
+    }
