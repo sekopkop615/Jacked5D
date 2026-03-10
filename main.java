@@ -1286,3 +1286,59 @@ public final class Jacked5D {
         m.put("dispatchedLogSize", dispatchedLog.size());
         m.put("engagedLogSize", engagedLog.size());
         m.put("evolutionLogSize", evolutionLog.size());
+        m.put("clawSlotCount", clawSlots.size());
+        m.put("idleSlotCount", countIdleSlots());
+        m.put("totalFitness", totalFitness());
+        m.put("averageFitness", averageFitness());
+        return m;
+    }
+
+    public String getStatsSummary() {
+        Map<String, Object> s = getStats();
+        return String.format("J5D v%d | tasks=%d gen=%d stake=%d slots=%d idle=%d fitness=%d",
+            s.get("version"), s.get("taskCounter"), s.get("evolutionGeneration"), s.get("totalStake"),
+            s.get("clawSlotCount"), s.get("idleSlotCount"), s.get("totalFitness"));
+    }
+
+    public static final long EPOCH_MS_1MIN = 60_000L;
+    public static final long EPOCH_MS_1HOUR = 3_600_000L;
+    public static final long EPOCH_MS_1DAY = 86_400_000L;
+
+    public long dispatchedInLastMs(long windowMs) {
+        long cutoff = System.currentTimeMillis() - windowMs;
+        return dispatchedLog.stream().filter(e -> e.timestamp >= cutoff).count();
+    }
+
+    public long engagedInLastMs(long windowMs) {
+        long cutoff = System.currentTimeMillis() - windowMs;
+        return engagedLog.stream().filter(e -> e.blockNum * 1000 >= cutoff).count();
+    }
+
+    public double dispatchRatePerMinute() {
+        return (double) dispatchedInLastMs(EPOCH_MS_1MIN) * 60_000.0 / EPOCH_MS_1MIN;
+    }
+
+    public double engagementRatePerHour() {
+        return (double) engagedInLastMs(EPOCH_MS_1HOUR) * 3_600_000.0 / EPOCH_MS_1HOUR;
+    }
+
+    public int selectSlotForDispatch(Random rng) {
+        return getSelfEvolveStrategy().selectSlot(clawSlots, rng);
+    }
+
+    public int selectSlotForDispatch() {
+        return selectSlotForDispatch(new Random());
+    }
+
+    public Optional<String> tryDispatchToSlot(String caller, int slotIndex, byte[] payload, TaskPriority priority) {
+        if (slotIndex < 0 || slotIndex >= J5DNet.J5D_MAX_CLAW_SLOTS) return Optional.empty();
+        ClawSlot s = clawSlots.get(slotIndex);
+        if (s != null && s.mode != ClawMode.IDLE.getCode()) return Optional.empty();
+        requireNotPaused();
+        if (payload == null || payload.length > J5DNet.J5D_MAX_TASK_PAYLOAD) return Optional.empty();
+        String taskId = "J5D-" + taskCounter.incrementAndGet() + "-" + System.nanoTime();
+        long ts = System.currentTimeMillis();
+        TaskRecord rec = new TaskRecord(caller, payload, priority.getCode(), slotIndex, ts);
+        taskRegistry.put(taskId, rec);
+        if (s == null) clawSlots.put(slotIndex, new ClawSlot(slotIndex));
+        clawSlots.get(slotIndex).mode = ClawMode.GRIP.getCode();
