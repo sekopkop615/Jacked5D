@@ -1398,3 +1398,59 @@ public final class Jacked5D {
 
     public int getSystemFlags() {
         int f = 0;
+        if (paused) f |= J5D_FLAG_PAUSED;
+        f |= J5D_FLAG_FEE_ENABLED;
+        return f;
+    }
+
+    public boolean hasFlag(int flag) { return (getSystemFlags() & flag) != 0; }
+
+    public String getGovernorAddress() { return governor; }
+    public String getTreasuryAddress() { return treasury; }
+    public String getRelayHubAddress() { return relayHub; }
+
+    public boolean isGovernor(String addr) { return addressEquals(governor, addr); }
+    public boolean isTreasury(String addr) { return addressEquals(treasury, addr); }
+    public boolean isRelayHub(String addr) { return addressEquals(relayHub, addr); }
+
+    public long weiFromGwei(long gwei) { return gwei * 1_000_000_000L; }
+    public long gweiFromWei(long wei) { return wei / 1_000_000_000L; }
+
+    public static long parseWei(String str) {
+        if (str == null) return 0L;
+        try {
+            return Long.parseLong(str.trim());
+        } catch (NumberFormatException e) { return 0L; }
+    }
+
+    public static int parseSlotIndex(String str) {
+        if (str == null) return -1;
+        try {
+            int i = Integer.parseInt(str.trim());
+            return i >= 0 && i < J5DNet.J5D_MAX_CLAW_SLOTS ? i : -1;
+        } catch (NumberFormatException e) { return -1; }
+    }
+
+    public String humanReadableStake(long wei) {
+        if (wei >= 1_000_000_000_000_000_000L) return (wei / 1_000_000_000_000_000_000.0) + " ETH";
+        if (wei >= 1_000_000_000_000L) return (wei / 1_000_000_000_000.0) + " Gwei*1e3";
+        return wei + " wei";
+    }
+
+    public String humanReadableTaskId(String taskId) {
+        return formatTaskIdShort(taskId);
+    }
+
+    public List<String> recentTaskIds(int limit) {
+        int n = dispatchedLog.size();
+        if (limit <= 0 || n == 0) return Collections.emptyList();
+        int from = Math.max(0, n - limit);
+        List<String> out = new ArrayList<>();
+        for (int i = n - 1; i >= from && out.size() < limit; i--)
+            out.add(dispatchedLog.get(i).taskId);
+        return out;
+    }
+
+    public Optional<TaskRecord> latestTask() {
+        if (dispatchedLog.isEmpty()) return Optional.empty();
+        String lastId = dispatchedLog.get(dispatchedLog.size() - 1).taskId;
