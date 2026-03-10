@@ -1230,3 +1230,59 @@ public final class Jacked5D {
     public void recordDispatchedEvent(String taskId, String fromAddr, int slotIndex) {
         dispatchedLog.add(new J5DTaskDispatched(taskId, fromAddr, slotIndex, System.currentTimeMillis()));
     }
+
+    public void recordEngagedEvent(int clawId, String targetAddr, byte[] payloadHash, long blockNum) {
+        engagedLog.add(new J5DClawEngaged(clawId, targetAddr, payloadHash, blockNum));
+    }
+
+    public Optional<J5DTaskDispatched> findDispatchedByTaskId(String taskId) {
+        return dispatchedLog.stream().filter(e -> taskId != null && taskId.equals(e.taskId)).reduce((a, b) -> b);
+    }
+
+    public Optional<J5DClawEngaged> findEngagedByClawId(int clawId) {
+        return engagedLog.stream().filter(e -> e.clawId == clawId).reduce((a, b) -> b);
+    }
+
+    public List<J5DClawEngaged> allEngagedForClaw(int clawId) {
+        return engagedLog.stream().filter(e -> e.clawId == clawId).collect(Collectors.toList());
+    }
+
+    public long countDispatchedByAddress(String addr) {
+        return addr == null ? 0L : dispatchedLog.stream().filter(e -> addr.equals(e.fromAddr)).count();
+    }
+
+    public long countEngagedByClaw(int clawId) {
+        return engagedLog.stream().filter(e -> e.clawId == clawId).count();
+    }
+
+    public String exportStateJson() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"version\":").append(J5DNet.J5D_VERSION);
+        sb.append(",\"taskCounter\":").append(taskCounter.get());
+        sb.append(",\"evolutionGen\":").append(evolutionGeneration.get());
+        sb.append(",\"totalStake\":").append(totalStake());
+        sb.append(",\"dispatchedCount\":").append(dispatchedLog.size());
+        sb.append(",\"engagedCount\":").append(engagedLog.size());
+        sb.append(",\"snapshot\":\"").append(snapshotDigest()).append("\"}");
+        return sb.toString();
+    }
+
+    public void importStakeBalances(Map<String, Long> balances) {
+        if (balances == null) return;
+        balances.forEach((addr, amt) -> {
+            if (addr != null && amt != null && amt > 0) stakeBalances.put(addr, amt);
+        });
+    }
+
+    public Map<String, Object> getStats() {
+        Map<String, Object> m = new HashMap<>();
+        m.put("version", J5DNet.J5D_VERSION);
+        m.put("paused", paused);
+        m.put("taskCounter", taskCounter.get());
+        m.put("evolutionGeneration", evolutionGeneration.get());
+        m.put("totalStake", totalStake());
+        m.put("stakerCount", stakerCount());
+        m.put("taskRegistrySize", taskRegistry.size());
+        m.put("dispatchedLogSize", dispatchedLog.size());
+        m.put("engagedLogSize", engagedLog.size());
+        m.put("evolutionLogSize", evolutionLog.size());
