@@ -1846,3 +1846,59 @@ public final class Jacked5D {
 
     public byte[] commitmentHash(byte[] data, long nonce) {
         return hashForCommitment(data, nonce);
+    }
+
+    public long suggestedNonceFor(String caller) {
+        return nextNonce() ^ (caller != null ? caller.hashCode() : 0);
+    }
+
+    public static final int J5D_MAX_BATCH_DISPATCH = 32;
+    public static final int J5D_MAX_BATCH_EXECUTE = 16;
+
+    public int maxBatchDispatchSize() { return J5D_MAX_BATCH_DISPATCH; }
+    public int maxBatchExecuteSize() { return J5D_MAX_BATCH_EXECUTE; }
+
+    public List<String> dispatchTaskBatch(String caller, List<byte[]> payloads, TaskPriority priority) {
+        if (payloads == null || payloads.size() > J5D_MAX_BATCH_DISPATCH)
+            return payloads == null ? Collections.emptyList() : dispatchTasks(caller, payloads.subList(0, J5D_MAX_BATCH_DISPATCH), priority);
+        return dispatchTasks(caller, payloads, priority);
+    }
+
+    public int executeTaskBatch(List<String> taskIds, String executor) {
+        if (taskIds == null) return 0;
+        List<String> sub = taskIds.size() > J5D_MAX_BATCH_EXECUTE ? taskIds.subList(0, J5D_MAX_BATCH_EXECUTE) : taskIds;
+        return executeClawTasks(sub, executor);
+    }
+
+    public long totalGasEstimateForBatchDispatch(int count) {
+        return gasForDispatch() * Math.min(count, J5D_MAX_BATCH_DISPATCH);
+    }
+
+    public long totalGasEstimateForBatchExecute(int count) {
+        return gasForExecute() * Math.min(count, J5D_MAX_BATCH_EXECUTE);
+    }
+
+    public String toHex(byte[] data) { return PayloadEncoder.toHex(data); }
+    public byte[] fromHex(String hex) { return PayloadEncoder.fromHex(hex); }
+
+    public String taskIdToHex(String taskId) {
+        return taskId == null ? "" : toHex(taskId.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String hexToTaskId(String hex) {
+        byte[] b = fromHex(hex);
+        return b.length == 0 ? "" : new String(b, StandardCharsets.UTF_8);
+    }
+
+    public int slotIndexFromTaskId(String taskId) {
+        TaskRecord rec = taskRegistry.get(taskId);
+        return rec == null ? -1 : rec.slotIndex;
+    }
+
+    public String callerFromTaskId(String taskId) {
+        TaskRecord rec = taskRegistry.get(taskId);
+        return rec == null ? null : rec.caller;
+    }
+
+    public long createdAtFromTaskId(String taskId) {
+        TaskRecord rec = taskRegistry.get(taskId);
