@@ -1734,3 +1734,59 @@ public final class Jacked5D {
         TaskRecord rec = taskRegistry.get(taskId);
         return rec == null || rec.payload == null ? 0 : rec.payload.length;
     }
+
+    public boolean isHighPriorityTask(String taskId) {
+        TaskRecord rec = taskRegistry.get(taskId);
+        return rec != null && rec.priority >= TaskPriority.HIGH.getCode();
+    }
+
+    public List<String> taskIdsByPriority(int minPriorityCode) {
+        return taskRegistry.entrySet().stream()
+            .filter(e -> e.getValue().priority >= minPriorityCode)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    }
+
+    public long oldestTaskCreatedAt() {
+        return taskRegistry.values().stream()
+            .mapToLong(r -> r.createdAt)
+            .min()
+            .orElse(0L);
+    }
+
+    public long newestTaskCreatedAt() {
+        return taskRegistry.values().stream()
+            .mapToLong(r -> r.createdAt)
+            .max()
+            .orElse(0L);
+    }
+
+    public int taskCountByCaller(String caller) {
+        return caller == null ? 0 : (int) taskRegistry.values().stream().filter(r -> caller.equals(r.caller)).count();
+    }
+
+    public List<String> callersByTaskCountDesc(int limit) {
+        Map<String, Long> count = new HashMap<>();
+        taskRegistry.values().forEach(r -> count.merge(r.caller, 1L, Long::sum));
+        return count.entrySet().stream()
+            .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+            .limit(limit <= 0 ? 20 : limit)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    }
+
+    public Optional<J5DEvolutionTick> evolutionTickAtGeneration(int gen) {
+        return evolutionLog.stream().filter(t -> t.generation == gen).findFirst();
+    }
+
+    public long totalFitnessAtGeneration(int gen) {
+        return evolutionTickAtGeneration(gen).map(t -> t.totalFitness).orElse(0L);
+    }
+
+    public int activeClawsAtGeneration(int gen) {
+        return evolutionTickAtGeneration(gen).map(t -> t.activeClaws).orElse(0);
+    }
+
+    public double fitnessGrowthRate(int fromGen, int toGen) {
+        long f1 = totalFitnessAtGeneration(fromGen);
+        long f2 = totalFitnessAtGeneration(toGen);
