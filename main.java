@@ -670,3 +670,59 @@ public final class Jacked5D {
             if (fromAddr != null) out.add(fromAddr);
             int n = Math.min(hopAddresses.size(), maxHops - 2);
             for (int i = 0; i < n; i++) out.add(hopAddresses.get(i));
+            if (toAddr != null) out.add(toAddr);
+            return out;
+        }
+
+        public int getMaxHops() { return maxHops; }
+    }
+
+    // ─── Pause guard (time-lock) ───────────────────────────────────────────────
+
+    public static final class PauseGuard {
+        private final String guardAddr;
+        private volatile long unlockAtMs;
+
+        public PauseGuard(String guardAddr) {
+            this.guardAddr = guardAddr != null ? guardAddr : J5DNet.J5D_PAUSE_GUARD;
+            this.unlockAtMs = 0L;
+        }
+
+        public boolean canUnpause(String caller, long nowMs) {
+            return guardAddr != null && guardAddr.equals(caller) && nowMs >= unlockAtMs;
+        }
+
+        public void scheduleUnlock(long delayMs, long nowMs) {
+            this.unlockAtMs = nowMs + delayMs;
+        }
+
+        public long getUnlockAtMs() { return unlockAtMs; }
+    }
+
+    private RelayRouter relayRouter;
+    private PauseGuard pauseGuard;
+
+    public RelayRouter getRelayRouter() {
+        if (relayRouter == null) {
+            List<String> hops = Arrays.asList(
+                "0x6A8c0E2b4D6f8A1c3E5b7D9f1A3c5E7b9D1f3A5e",
+                "0x3E5b7D9f1A3c5E7b9D1f3A5c7E9b1D3f5A7c9E2a",
+                "0xB1D3f5A7c9E1b3D5f7A9c1E3b5D7f9A1c3E5b8d"
+            );
+            relayRouter = new RelayRouter(hops, 12);
+        }
+        return relayRouter;
+    }
+
+    public PauseGuard getPauseGuard() {
+        if (pauseGuard == null) pauseGuard = new PauseGuard(J5DNet.J5D_PAUSE_GUARD);
+        return pauseGuard;
+    }
+
+    // ─── Batch dispatch & execute ──────────────────────────────────────────────
+
+    public List<String> dispatchTasks(String caller, List<byte[]> payloads, TaskPriority priority) {
+        if (payloads == null || payloads.isEmpty()) return Collections.emptyList();
+        List<String> ids = new ArrayList<>(payloads.size());
+        for (byte[] p : payloads) ids.add(dispatchTask(caller, p, priority));
+        return ids;
