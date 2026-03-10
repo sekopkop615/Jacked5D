@@ -1622,3 +1622,59 @@ public final class Jacked5D {
             .collect(Collectors.toList());
     }
 
+    public Optional<ClawStateSnapshot> snapshotForSlot(int slotIndex) {
+        ClawSlot s = clawSlots.get(slotIndex);
+        return s == null ? Optional.empty() : Optional.of(new ClawStateSnapshot(s.slotId, s.mode, s.fitnessScore, s.lastUsedAt));
+    }
+
+    public static final int J5D_ERR_UNAUTHORIZED = 1;
+    public static final int J5D_ERR_PAUSED = 2;
+    public static final int J5D_ERR_CAP_EXCEEDED = 3;
+    public static final int J5D_ERR_INVALID_PAYLOAD = 4;
+    public static final int J5D_ERR_STAKE_TOO_LOW = 5;
+    public static final int J5D_ERR_UNKNOWN_TASK = 6;
+    public static final int J5D_ERR_EVOLUTION_LOCKED = 7;
+    public static final int J5D_ERR_CLAW_SLOT_BUSY = 8;
+
+    public int errorCodeForException(RuntimeException e) {
+        if (e instanceof J5dGovernorOnlyException || e instanceof J5dUnauthorizedCallerException) return J5D_ERR_UNAUTHORIZED;
+        if (e instanceof J5dPausedException) return J5D_ERR_PAUSED;
+        if (e instanceof J5dCapExceededException) return J5D_ERR_CAP_EXCEEDED;
+        if (e instanceof J5dInvalidPayloadException) return J5D_ERR_INVALID_PAYLOAD;
+        if (e instanceof J5dStakeTooLowException) return J5D_ERR_STAKE_TOO_LOW;
+        if (e instanceof J5dUnknownTaskIdException) return J5D_ERR_UNKNOWN_TASK;
+        if (e instanceof J5dEvolutionLockedException) return J5D_ERR_EVOLUTION_LOCKED;
+        if (e instanceof J5dClawSlotBusyException) return J5D_ERR_CLAW_SLOT_BUSY;
+        return 0;
+    }
+
+    public String errorMessageForCode(int code) {
+        switch (code) {
+            case J5D_ERR_UNAUTHORIZED: return "J5D: caller not authorized";
+            case J5D_ERR_PAUSED: return "J5D: system paused";
+            case J5D_ERR_CAP_EXCEEDED: return "J5D: capacity exceeded";
+            case J5D_ERR_INVALID_PAYLOAD: return "J5D: invalid payload";
+            case J5D_ERR_STAKE_TOO_LOW: return "J5D: stake below minimum";
+            case J5D_ERR_UNKNOWN_TASK: return "J5D: unknown task id";
+            case J5D_ERR_EVOLUTION_LOCKED: return "J5D: evolution locked";
+            case J5D_ERR_CLAW_SLOT_BUSY: return "J5D: claw slot busy";
+            default: return "J5D: unknown error";
+        }
+    }
+
+    public boolean isRecoverableError(int code) {
+        return code == J5D_ERR_PAUSED || code == J5D_ERR_CLAW_SLOT_BUSY || code == J5D_ERR_EVOLUTION_LOCKED;
+    }
+
+    public static final String J5D_DOMAIN_SEPARATOR = "J5D-DOMAIN-V1";
+    public static final String J5D_TYPEHASH_DISPATCH = "Dispatch(string taskId,address caller,uint256 slotIndex,uint256 timestamp)";
+    public static final String J5D_TYPEHASH_ENGAGED = "Engaged(uint256 clawId,address target,bytes32 payloadHash,uint256 blockNum)";
+
+    public byte[] hashTypedData(String typeHash, String taskId, String caller, long slotIndex, long timestamp) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(J5D_DOMAIN_SEPARATOR.getBytes(StandardCharsets.UTF_8));
+            md.update(typeHash.getBytes(StandardCharsets.UTF_8));
+            if (taskId != null) md.update(taskId.getBytes(StandardCharsets.UTF_8));
+            if (caller != null) md.update(caller.getBytes(StandardCharsets.UTF_8));
+            md.update(BigInteger.valueOf(slotIndex).toByteArray());
