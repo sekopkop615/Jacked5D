@@ -446,3 +446,59 @@ public final class Jacked5D {
         private int tasksBilled;
 
         public FeeCollector(String treasuryAddr) {
+            this.treasuryAddr = treasuryAddr != null ? treasuryAddr : J5DNet.J5D_TREASURY;
+            this.accumulatedWei = 0L;
+            this.tasksBilled = 0;
+        }
+
+        public long computeFee(long baseWei, int priorityCode) {
+            long fee = baseWei;
+            if (priorityCode >= TaskPriority.HIGH.getCode()) fee = fee * 2L;
+            if (priorityCode >= TaskPriority.CRITICAL.getCode()) fee = fee * 3L;
+            long bps = (fee * J5DNet.J5D_FEE_BPS) / J5DNet.J5D_BPS_DENOM;
+            return fee + bps;
+        }
+
+        public void collect(String fromAddr, long amountWei) {
+            accumulatedWei += amountWei;
+            tasksBilled++;
+        }
+
+        public long flushToTreasury() {
+            long amt = accumulatedWei;
+            accumulatedWei = 0L;
+            return amt;
+        }
+
+        public String getTreasuryAddr() { return treasuryAddr; }
+        public long getAccumulatedWei() { return accumulatedWei; }
+        public int getTasksBilled() { return tasksBilled; }
+    }
+
+    // ─── Oracle adapter (price / entropy) ──────────────────────────────────────
+
+    public static final class OracleAdapter {
+        private final String feedAddr;
+        private final Map<String, BigInteger> priceCache;
+        private final SecureRandom rng;
+
+        public OracleAdapter(String feedAddr) {
+            this.feedAddr = feedAddr != null ? feedAddr : J5DNet.J5D_ORACLE_FEED;
+            this.priceCache = new ConcurrentHashMap<>();
+            this.rng = new SecureRandom();
+        }
+
+        public BigInteger getPrice(String symbol) {
+            if (symbol == null) return BigInteger.ZERO;
+            return priceCache.computeIfAbsent(symbol, s -> nextRandomBigInt(80));
+        }
+
+        public void setPrice(String symbol, BigInteger value) {
+            if (symbol != null && value != null) priceCache.put(symbol, value);
+        }
+
+        public byte[] getEntropy(int byteLength) {
+            byte[] out = new byte[byteLength <= 0 ? 32 : Math.min(byteLength, 256)];
+            rng.nextBytes(out);
+            return out;
+        }
