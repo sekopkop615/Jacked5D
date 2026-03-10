@@ -1958,3 +1958,28 @@ public final class Jacked5D {
     public int clampSlotIndex(int index) {
         if (index < 0) return 0;
         return Math.min(index, J5DNet.J5D_MAX_CLAW_SLOTS - 1);
+    }
+
+    public boolean isSlotReserved(int index) {
+        return index >= 0 && index < 3;
+    }
+
+    public long weiToGwei(long wei) { return wei / 1_000_000_000L; }
+    public long gweiToWei(long gwei) { return gwei * 1_000_000_000L; }
+
+    public String toShortAddress(String addr) {
+        if (addr == null || addr.length() < 42) return "";
+        return addr.substring(0, 8) + "..." + addr.substring(addr.length() - 6);
+    }
+
+    public static final int J5D_DEFAULT_KEEP_DISPATCHED = 1024;
+    public static final int J5D_DEFAULT_KEEP_ENGAGED = 512;
+    public static final int J5D_DEFAULT_KEEP_EVOLUTION = 256;
+
+    public void trimLogsToDefaults() {
+        trimDispatchedLog(J5D_DEFAULT_KEEP_DISPATCHED);
+        trimEngagedLog(J5D_DEFAULT_KEEP_ENGAGED);
+        trimEvolutionLog(J5D_DEFAULT_KEEP_EVOLUTION);
+    }
+
+}
