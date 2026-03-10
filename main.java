@@ -502,3 +502,59 @@ public final class Jacked5D {
             rng.nextBytes(out);
             return out;
         }
+
+        public String getFeedAddr() { return feedAddr; }
+
+        private static BigInteger nextRandomBigInt(int bitLen) {
+            Random r = new Random();
+            return new BigInteger(bitLen, r).abs();
+        }
+    }
+
+    // ─── Hench config (limits & tuning) ───────────────────────────────────────
+
+    public static final class HenchConfig {
+        public final int maxRetries;
+        public final int timeoutMs;
+        public final int batchSize;
+        public final double fitnessDecay;
+        public final long cooldownBlocks;
+
+        public HenchConfig(int maxRetries, int timeoutMs, int batchSize, double fitnessDecay, long cooldownBlocks) {
+            this.maxRetries = maxRetries <= 0 ? 3 : maxRetries;
+            this.timeoutMs = timeoutMs <= 0 ? 5000 : timeoutMs;
+            this.batchSize = batchSize <= 0 ? 16 : Math.min(batchSize, 64);
+            this.fitnessDecay = fitnessDecay <= 0 || fitnessDecay > 1 ? 0.99 : fitnessDecay;
+            this.cooldownBlocks = cooldownBlocks < 0 ? 0L : cooldownBlocks;
+        }
+
+        public static HenchConfig defaultConfig() {
+            return new HenchConfig(3, 5000, 16, 0.99, 12L);
+        }
+    }
+
+    private FeeCollector feeCollector;
+    private OracleAdapter oracleAdapter;
+    private HenchConfig henchConfig;
+
+    public FeeCollector getFeeCollector() {
+        if (feeCollector == null) feeCollector = new FeeCollector(treasury);
+        return feeCollector;
+    }
+
+    public OracleAdapter getOracleAdapter() {
+        if (oracleAdapter == null) oracleAdapter = new OracleAdapter(J5DNet.J5D_ORACLE_FEED);
+        return oracleAdapter;
+    }
+
+    public HenchConfig getHenchConfig() {
+        if (henchConfig == null) henchConfig = HenchConfig.defaultConfig();
+        return henchConfig;
+    }
+
+    public void setHenchConfig(HenchConfig cfg) {
+        this.henchConfig = cfg != null ? cfg : HenchConfig.defaultConfig();
+    }
+
+    // ─── Validation & checksums ───────────────────────────────────────────────
+
